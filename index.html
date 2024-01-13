@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./styles.css" type="text/css"/>
+    <title>Heat map</title>
+</head>
+<body>
+    <script type="module">
+        import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+        
+        fetch("https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/global-temperature.json")
+        .then(response => response.json())
+        .then(data => dataScrub(data))
+        //Add tooltip
+
+        const tooltip = d3.select("body").append("div")
+                .attr("id", "tooltip")
+                .attr("class", "tooltip")
+                .attr("style", "position: absolute; opacity: 0; text-align: center;")
+
+        function dataScrub (data) {
+            const yearArray = []
+            data["monthlyVariance"].forEach((value) => {
+                switch(value.month){
+                case 1: 
+                    value.monthString = "January"
+                    break;
+                case 2: 
+                    value.monthString = "February"
+                    break;
+                case 3: 
+                    value.monthString = "March"
+                    break;
+                case 4: 
+                    value.monthString = "April"
+                    break;
+                case 5: 
+                    value.monthString = "May"
+                    break;
+                case 6: 
+                    value.monthString = "June"
+                    break;
+                case 7: 
+                    value.monthString = "July"
+                    break;
+                case 8: 
+                    value.monthString = "August"
+                    break;
+                case 9: 
+                    value.monthString = "September"
+                    break;
+                case 10: 
+                    value.monthString = "October"
+                    break;
+                case 11: 
+                    value.monthString = "November"
+                    break;
+                case 12: 
+                    value.monthString = "December"
+                    break;
+                };
+                value.temperature = data.baseTemperature + value.variance
+                value.yearString = value.year.toString() 
+                yearArray.push(value.yearString)
+            })
+
+            render(data, yearArray)
+        }
+
+        function render (data, year) {
+            console.log(data)
+            //Start SVG
+            const base = data.baseTemperature
+            const dataset = data.monthlyVariance
+            const h = 600
+            const w = 1600
+            const p = 70
+            const svg = d3.select("body").append("svg").attr("width", w).attr("height", h)
+
+            //Init legend
+
+            const legendH = 75
+            const legendW = 517
+            const legendP = 20
+            const margin = 60
+
+            const legend = d3.select("body").append("svg").attr("width", legendW).attr("height", legendH).attr("id", "legend")
+
+            const legendData = [
+                {temp: 2.8, colour: "#4575b4"},
+                {temp: 3.9, colour: "#74add1"},
+                {temp: 5.0, colour: "#abd9e9"},
+                {temp: 6.1, colour: "#e0f3f8"},
+                {temp: 7.2, colour: "#ffffbf"},
+                {temp: 8.3, colour: "#fee090"},
+                {temp: 9.5, colour: "#fdae61"},
+                {temp: 10.6, colour: "#f46d43"},
+                {temp: 11.7, colour: "#d73027"},
+                {temp: 12.8, colour: "#FFFFFF"}
+            ]
+            const xLabels = legendData.map((value) => {return value.temp})
+            const rectSize = (legendW - (margin * 2))/9
+            
+            const xScaleLegend = d3.scalePoint().domain(xLabels).range([margin, legendW - margin])
+            const xAxisLegend = d3.axisBottom(xScaleLegend).tickFormat(d3.format(".1f"))
+
+            legend
+            .selectAll("rect")
+            .data(legendData).enter()
+            .append("rect")
+            .attr("x", (d, i) => {if(i != legendData.length - 1){return xScaleLegend(d.temp)}})
+            .attr("y", legendH - legendP - 42)
+            .attr("width", (d, i) => {if(i!=legendData.length-1){return rectSize}})
+            .attr("height", 30)
+            .attr("fill", (d) => d.colour)
+            .attr("stroke", "black")
+            
+            legend.append("g").attr("transform", `translate(0, ${legendH - legendP - 12})`).call(xAxisLegend)
+
+            //Init axes
+            const xScale = d3
+                            .scaleBand()
+                            .domain(year)
+                            .range([p, w - p])
+
+            const xAxis = d3.axisBottom(xScale).tickValues(xScale.domain().filter(function(d,i){return !((i + 83)%10)}))
+
+            svg.append("g").attr("transform", `translate(0, ${h - p})`).attr("id", "x-axis").call(xAxis)
+
+            const yScale = d3
+                            .scaleBand()
+                            .domain(["December", "November", "October", "September", "August", "July", "June", "May", "April", "March", "February", "January"])
+                            .range([h - p, p])
+
+            const yAxis = d3.axisLeft(yScale)
+
+            svg.append("g").attr("transform", `translate(${p}, 0)`).attr("id", "y-axis").call(yAxis)
+
+            //Add data
+            console.log(dataset)
+            svg
+                .selectAll("rect")
+                .data(dataset)
+                .enter()
+                .append("rect")
+                .attr("x", (d) => xScale(d.yearString))
+                .attr("y", (d) => yScale(d.monthString))
+                .attr("width", `${w / (2015-1753)}`)
+                .attr("height", `${(h-2*p)/12}`)
+                .attr("class", "cell")
+                .attr("data-month", (d) => d.month-1)
+                .attr("data-year", (d) => d.year)
+                .attr("data-temp", (d) => d.temperature)
+                .attr("fill", (d) => {
+                    const x = d.temperature
+                    switch(true){
+                        case (x < 3.9):
+                            return "#4575b4"
+                            break;
+                        case (x < 5):
+                            return "#74add1"
+                            break;
+                        case (x < 6.1):
+                            return "#abd9e9"
+                            break;
+                        case (x < 7.2):
+                            return "#e0f3f8"
+                            break;
+                        case (x < 8.3):
+                            return "#ffffbf"
+                            break;
+                        case (x < 9.5): 
+                            return "#fee090"
+                            break;
+                        case (x < 10.6):
+                            return "#fdae61"
+                            break;
+                        case (x < 11.7):
+                            return "#f46d43"
+                            break;
+                        case (x > 11.7): 
+                            return "#d73027"
+                            break;
+                    }
+                })
+                .on("mouseover", (event, d) => {
+                    tooltip.attr("data-year", d.year)
+                    tooltip.transition().duration(100).style("opacity", .9)
+                    tooltip.html(`${d.yearString} - ${d.monthString}<br>${d.temperature.toFixed(1)}&deg;C<br>${d.variance.toFixed(1)}&deg;C`).style("left", (event.pageX - 55) + "px").style("top", (event.pageY - 100) + "px")
+                })
+                .on("mouseout", (d) => {
+                    tooltip.style("opacity", 0)
+                })
+
+        }
+    </script>
+    <heading id="heading">
+        <h1 id="title">Monthly Global Land-Surface Temperature</h1>
+        <h2 id="description">1753 - 2015: base temperature 8.66℃</h2>
+    </heading>
+
+    <script src="https://cdn.freecodecamp.org/testable-projects-fcc/v1/bundle.js"></script>
+</body>
+</html>
